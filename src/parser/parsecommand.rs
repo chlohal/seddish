@@ -9,12 +9,30 @@ pub trait SubstitutionLikeCommandFactory: 'static {
     fn field_count(&self) -> usize;
 }
 
+impl<F: Fn(&mut ParserState, String) -> Result<Box<dyn SedCommand>, ParserError> + 'static> SingleLineArgumentCommandFactory for F {
+    fn new(&self, current_parser: &mut ParserState, argument: String) -> Result<Box<dyn SedCommand>, ParserError> {
+        (self)(current_parser, argument)
+    }
+}
+
 pub trait SingleLineArgumentCommandFactory: 'static {
     fn new(&self, current_parser: &mut ParserState, argument: String) -> Result<Box<dyn SedCommand>, ParserError>;
 }
 
+impl<F: Fn(&mut ParserState, String) -> Result<Box<dyn SedCommand>, ParserError> + 'static> MultiLineArgumentCommandFactory for F {
+    fn new(&self, current_parser: &mut ParserState, argument: String) -> Result<Box<dyn SedCommand>, ParserError> {
+        (self)(current_parser, argument)
+    }
+}
+
 pub trait MultiLineArgumentCommandFactory: 'static {
     fn new(&self, current_parser: &mut ParserState, argument: String) -> Result<Box<dyn SedCommand>, ParserError>;
+}
+
+impl<F: Fn(&mut ParserState) -> Result<Box<dyn SedCommand>, ParserError> + 'static> NoArgumentCommandFactory for F {
+    fn new(&self, current_parser: &mut ParserState) -> Result<Box<dyn SedCommand>, ParserError> {
+        (self)(current_parser)
+    }
 }
 
 pub trait NoArgumentCommandFactory: 'static {
