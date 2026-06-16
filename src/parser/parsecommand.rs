@@ -35,6 +35,24 @@ impl<F: Fn(&mut ParserState) -> Result<Box<dyn SedCommand>, ParserError> + 'stat
     }
 }
 
+impl NoArgumentCommandFactory for fn() -> CommandResult<'static> {
+    fn new(&self, _: &mut ParserState) -> Result<Box<dyn SedCommand>, ParserError> {
+        Ok(Box::new(*self))
+    }
+}
+
+impl SedCommand for fn() -> CommandResult<'static> {
+    fn execute<'a>(
+        &'a self,
+        _: &'a mut SedLineState,
+        _: &'a SedLineInfo,
+        _: &'a mut String,
+        _: &'a mut String,
+    ) -> CommandResult<'a> {
+        self()
+    }
+}
+
 pub trait NoArgumentCommandFactory: 'static {
     fn new(&self, current_parser: &mut ParserState) -> Result<Box<dyn SedCommand>, ParserError>;
 }
