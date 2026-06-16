@@ -3,33 +3,33 @@ use crate::{
     program::{SedLineInfo, SedLineState},
 };
 
-pub trait SubstitutionLikeCommandFactory: 'static {
+pub trait SubstitutionLikeCommandFactory: 'static + Send {
     fn new(&self, current_parser: &mut ParserState, arguments: Vec<String>, flags: String) -> Result<Box<dyn SedCommand>, ParserError>;
     fn check_flag(&self, flag: char) -> bool;
     fn field_count(&self) -> usize;
 }
 
-impl<F: Fn(&mut ParserState, String) -> Result<Box<dyn SedCommand>, ParserError> + 'static> SingleLineArgumentCommandFactory for F {
+impl<F: Fn(&mut ParserState, String) -> Result<Box<dyn SedCommand>, ParserError> + 'static + Send> SingleLineArgumentCommandFactory for F {
     fn new(&self, current_parser: &mut ParserState, argument: String) -> Result<Box<dyn SedCommand>, ParserError> {
         (self)(current_parser, argument)
     }
 }
 
-pub trait SingleLineArgumentCommandFactory: 'static {
+pub trait SingleLineArgumentCommandFactory: 'static + Send {
     fn new(&self, current_parser: &mut ParserState, argument: String) -> Result<Box<dyn SedCommand>, ParserError>;
 }
 
-impl<F: Fn(&mut ParserState, String) -> Result<Box<dyn SedCommand>, ParserError> + 'static> MultiLineArgumentCommandFactory for F {
+impl<F: Fn(&mut ParserState, String) -> Result<Box<dyn SedCommand>, ParserError> + 'static + Send> MultiLineArgumentCommandFactory for F {
     fn new(&self, current_parser: &mut ParserState, argument: String) -> Result<Box<dyn SedCommand>, ParserError> {
         (self)(current_parser, argument)
     }
 }
 
-pub trait MultiLineArgumentCommandFactory: 'static {
+pub trait MultiLineArgumentCommandFactory: 'static + Send {
     fn new(&self, current_parser: &mut ParserState, argument: String) -> Result<Box<dyn SedCommand>, ParserError>;
 }
 
-impl<F: Fn(&mut ParserState) -> Result<Box<dyn SedCommand>, ParserError> + 'static> NoArgumentCommandFactory for F {
+impl<F: Fn(&mut ParserState) -> Result<Box<dyn SedCommand>, ParserError> + 'static + Send> NoArgumentCommandFactory for F {
     fn new(&self, current_parser: &mut ParserState) -> Result<Box<dyn SedCommand>, ParserError> {
         (self)(current_parser)
     }
@@ -53,11 +53,11 @@ impl SedCommand for fn() -> CommandResult<'static> {
     }
 }
 
-pub trait NoArgumentCommandFactory: 'static {
+pub trait NoArgumentCommandFactory: 'static + Send {
     fn new(&self, current_parser: &mut ParserState) -> Result<Box<dyn SedCommand>, ParserError>;
 }
 
-pub trait SedCommand: 'static {
+pub trait SedCommand: 'static + Send {
     fn execute<'a>(
         &'a self,
         line_state: &'a mut SedLineState,
