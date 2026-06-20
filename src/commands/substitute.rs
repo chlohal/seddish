@@ -22,7 +22,7 @@ impl SedCommand for SubstituteCommand {
         _: &mut String,
         pattern: &'a mut String,
     ) -> CommandResult<'a> {
-        let limit = if self.all { 0 } else { 0 };
+        let limit = if self.all { 0 } else { 1 };
 
         let replaced = if self.has_expansion_groups {
             self.from.replacen(pattern.as_str(), limit, &self.to)
