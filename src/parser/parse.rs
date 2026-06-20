@@ -104,6 +104,10 @@ fn parse_string_with_fence(
         src.push(s);
     }
     let end_fence = chars.next();
+    if end_fence.is_none() {
+        return Err(ParserError::UnexpectedEof);
+    }
+
     debug_assert_eq!(end_fence, Some(fence));
     Ok(src)
 }
