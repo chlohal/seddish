@@ -146,6 +146,8 @@ fn parse_block(
         }
         let addr = parse_address_range(chars)?;
 
+        skip_inline_ws(chars);
+
         match chars.peek() {
             Some('{') => {
                 chars.next();
@@ -273,6 +275,17 @@ fn skip_ws_semicolons(chars: &mut Peekable<impl Iterator<Item = char>>) {
                 chars.next();
             }
             Some('#') => skip_line(chars),
+            _ => break,
+        }
+    }
+}
+
+fn skip_inline_ws(chars: &mut Peekable<impl Iterator<Item = char>>) {
+    loop {
+        match chars.peek() {
+            Some(' ' | '\t' | '\n' | '\r') => {
+                chars.next();
+            }
             _ => break,
         }
     }

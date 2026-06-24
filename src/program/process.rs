@@ -151,6 +151,8 @@ impl Iterator for LineEval<'_, '_> {
                         }
                     }
                 }
+            } else {
+                self.pc += 1;
             }
         }
     }
