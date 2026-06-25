@@ -7,6 +7,7 @@ pub trait SubstitutionLikeCommandFactory: 'static + Send {
     fn new(&self, current_parser: &mut ParserState, arguments: Vec<String>, flags: String) -> Result<Box<dyn SedCommand>, ParserError>;
     fn check_flag(&self, flag: char) -> bool;
     fn field_count(&self) -> usize;
+    fn command_name(&self) -> &'static str;
 }
 
 impl<F: Fn(&mut ParserState, String) -> Result<Box<dyn SedCommand>, ParserError> + 'static + Send> SingleLineArgumentCommandFactory for F {
@@ -67,6 +68,7 @@ pub trait SedCommand: 'static + Send {
     ) -> CommandResult<'a>;
 }
 
+#[derive(Debug)]
 pub enum CommandResult<'a> {
     BranchToLabel(&'a str),
     BranchToStart,

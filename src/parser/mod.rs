@@ -4,6 +4,7 @@ pub mod parsecommand;
 use std::collections::BTreeMap;
 
 use crate::{
+    address_range::AddressRange,
     commands::{
         append::AppendCommandFactory, branch::BranchCommandFactory,
         branch_if_not_sub::BranchIfNotSubSuccessfulCommandFactory,
@@ -22,6 +23,7 @@ use crate::{
         MultiLineArgumentCommandFactory, NoArgumentCommandFactory,
         SingleLineArgumentCommandFactory, SubstitutionLikeCommandFactory,
     },
+    program::{SedProgram, SedProgramBlock},
 };
 
 pub struct Parser {
@@ -30,7 +32,7 @@ pub struct Parser {
 
 pub struct ParserState {
     labels: BTreeMap<String, usize>,
-    current_stmt_count: usize,
+    stmts: Vec<SedProgramBlock>,
 }
 
 #[derive(Debug)]
@@ -45,6 +47,9 @@ pub enum ParserError {
     IncompleteAddressRange,
     UnknownCommand(char),
     UnmatchedBracket,
+    BackslashFence,
+    UnknownFlag(String, char),
+    WhitespaceFence,
 }
 
 impl ParserState {
@@ -52,9 +57,46 @@ impl ParserState {
         if self.labels.contains_key(&label) {
             return Err(ParserError::DuplicateLabel(label));
         } else {
-            self.labels.insert(label, self.current_stmt_count);
+            self.labels.insert(label, self.stmts.len());
             Ok(())
         }
+    }
+
+    fn into_program(self) -> SedProgram {
+        SedProgram {
+            commands: self.stmts,
+            labels: self.labels,
+        }
+    }
+
+    fn guard_block<E>(
+        &mut self,
+        filter: AddressRange,
+        mut create_block: impl FnMut(&mut ParserState) -> Result<(), E>,
+    ) -> Result<(), E> {
+        self.stmts.push(SedProgramBlock {
+            command: crate::program::BlockType::BlockBranch(0),
+            filter,
+        });
+        let jump_idx = self.stmts.len() - 1;
+
+        let cb_result = create_block(self);
+
+        if let Err(e) = cb_result {
+            self.stmts.pop();
+            return Err(e);
+        }
+
+        self.stmts[jump_idx].command = crate::program::BlockType::BlockBranch(self.stmts.len());
+
+        Ok(())
+    }
+
+    fn push(&mut self, cmd: Box<dyn parsecommand::SedCommand>, addr: AddressRange) {
+        self.stmts.push(SedProgramBlock {
+            command: crate::program::BlockType::SingleCommand(cmd),
+            filter: addr,
+        });
     }
 }
 
@@ -71,47 +113,47 @@ macro_rules! command_add_replace_method {
         fn+ $fn_name:ident impl $enum_name:ident for $trait_name:ident;
     ) => {
         pub fn $fn_name<C: $trait_name>(
-        &mut self,
-        command_letter: char,
-        command: C,
-    ) -> Result<(), C> {
-        if self.commands.contains_key(&command_letter) {
-            return Err(command);
-        } else {
-            debug_assert!(
-                self.commands
-                    .insert(
-                        command_letter,
-                        CommandParsingSpec::$enum_name(Box::new(command))
-                    )
-                    .is_none()
-            );
-            Ok(())
+            &mut self,
+            command_letter: char,
+            command: C,
+        ) -> Result<(), C> {
+            if self.commands.contains_key(&command_letter) {
+                return Err(command);
+            } else {
+                debug_assert!(
+                    self.commands
+                        .insert(
+                            command_letter,
+                            CommandParsingSpec::$enum_name(Box::new(command))
+                        )
+                        .is_none()
+                );
+                Ok(())
+            }
         }
-    }
     };
     (
         fn= $fn_name:ident impl $enum_name:ident for $trait_name:ident;
     ) => {
-pub fn $fn_name<C: $trait_name>(
-        &mut self,
-        command_letter: char,
-        command: C,
-    ) -> Result<(), C> {
-        if !self.commands.contains_key(&command_letter) {
-            return Err(command);
-        } else {
-            debug_assert!(
-                self.commands
-                    .insert(
-                        command_letter,
-                        CommandParsingSpec::$enum_name(Box::new(command))
-                    )
-                    .is_some()
-            );
-            Ok(())
+        pub fn $fn_name<C: $trait_name>(
+            &mut self,
+            command_letter: char,
+            command: C,
+        ) -> Result<(), C> {
+            if !self.commands.contains_key(&command_letter) {
+                return Err(command);
+            } else {
+                debug_assert!(
+                    self.commands
+                        .insert(
+                            command_letter,
+                            CommandParsingSpec::$enum_name(Box::new(command))
+                        )
+                        .is_some()
+                );
+                Ok(())
+            }
         }
-    }
     };
 }
 
@@ -160,17 +202,17 @@ impl Parser {
         self
     }
 
-    command_add_replace_method!{ fn+ add_substitution_command impl SubstitutionLike for SubstitutionLikeCommandFactory; }
-    command_add_replace_method!{ fn= replace_substitution_command impl SubstitutionLike for SubstitutionLikeCommandFactory; }
+    command_add_replace_method! { fn+ add_substitution_command impl SubstitutionLike for SubstitutionLikeCommandFactory; }
+    command_add_replace_method! { fn= replace_substitution_command impl SubstitutionLike for SubstitutionLikeCommandFactory; }
 
-    command_add_replace_method!{ fn+ add_single_line_command impl SingleLineArgument for SingleLineArgumentCommandFactory; }
-    command_add_replace_method!{ fn= replace_single_line_command impl SingleLineArgument for SingleLineArgumentCommandFactory; }
+    command_add_replace_method! { fn+ add_single_line_command impl SingleLineArgument for SingleLineArgumentCommandFactory; }
+    command_add_replace_method! { fn= replace_single_line_command impl SingleLineArgument for SingleLineArgumentCommandFactory; }
 
-    command_add_replace_method!{ fn+ add_multi_line_command impl MultilineArgument for MultiLineArgumentCommandFactory; }
-    command_add_replace_method!{ fn= replace_multi_line_command impl MultilineArgument for MultiLineArgumentCommandFactory; }
+    command_add_replace_method! { fn+ add_multi_line_command impl MultilineArgument for MultiLineArgumentCommandFactory; }
+    command_add_replace_method! { fn= replace_multi_line_command impl MultilineArgument for MultiLineArgumentCommandFactory; }
 
-    command_add_replace_method!{ fn+ add_no_argument_command impl NoArgument for NoArgumentCommandFactory; }
-    command_add_replace_method!{ fn= replace_no_argument_command impl NoArgument for NoArgumentCommandFactory; }
+    command_add_replace_method! { fn+ add_no_argument_command impl NoArgument for NoArgumentCommandFactory; }
+    command_add_replace_method! { fn= replace_no_argument_command impl NoArgument for NoArgumentCommandFactory; }
 }
 
 pub(self) enum CommandParsingSpec {

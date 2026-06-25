@@ -77,4 +77,8 @@ impl SubstitutionLikeCommandFactory for TransliterateCommandFactory {
     fn field_count(&self) -> usize {
         2
     }
+
+    fn command_name(&self) -> &'static str {
+        "transliteration"
+    }
 }

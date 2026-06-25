@@ -14,7 +14,12 @@ impl SedCommand for BranchIfSubSuccessfulCommand {
         _: &mut String,
     ) -> CommandResult<'_> {
         if *substitution_successful {
-            CommandResult::BranchToLabel(&self.0)
+            *substitution_successful = false;
+            if self.0.is_empty() {
+                CommandResult::BranchToEnd
+            } else {
+                CommandResult::BranchToLabel(&self.0)
+            }
         } else {
             CommandResult::Nothing
         }
@@ -29,6 +34,6 @@ impl SingleLineArgumentCommandFactory for BranchIfSubSuccessfulCommandFactory {
         _: &mut crate::parser::ParserState,
         argument: String,
     ) -> Result<Box<dyn SedCommand>, ParserError> {
-        Ok(Box::new(BranchIfSubSuccessfulCommand(argument)))
+        Ok(Box::new(BranchIfSubSuccessfulCommand(argument.trim().to_owned())))
     }
 }

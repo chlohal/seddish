@@ -84,4 +84,9 @@ impl SubstitutionLikeCommandFactory for SubstituteCommandFactory {
     fn field_count(&self) -> usize {
         2
     }
+    
+    fn command_name(&self) -> &'static str {
+        "substitution"
+    }
+    
 }

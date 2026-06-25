@@ -5,26 +5,28 @@ use seddish::program::{SedProgram, SedEffect};
 pub fn main() {
     let stdin = BufReader::new(stdin());
 
-    let script = args().nth(1).expect("Usage: seddish <script>");
+    let mut argv = args();
+    let argv0 = argv.next().expect("Should have a defined argv0");
+    let script = argv.next();
+    let _ = assert!(script.is_some(), "{argv0}: Missing argument. Usage: {argv0} <script>");
+    let _ = assert!(argv.next().is_none(), "{argv0}: Unexpected argument. Usage: {argv0} <script>");
 
 
-    let mut sed: SedProgram = script.parse().expect("Error parsing script");
+    let sed: SedProgram = script.unwrap().parse().expect("Error parsing script");
 
     let mut stdin_sed = sed.document();
 
     let mut lines = stdin.lines().peekable();
 
-    while let Some(mut line) = lines.next().and_then(Result::ok) {
+    while let Some(line) = lines.next().and_then(Result::ok) {
         let is_last = lines.peek().is_none();
-
-        line.push('\n');
 
         let mut line = stdin_sed.line(line, is_last);
 
-        while let Some(eff) = line.next() {
+        while let Some(eff) = line.next_effect() {
             match eff {
-                SedEffect::LabelNotFound(e) => {
-                    panic!("Label not found: {e}")
+                SedEffect::Error(e) => {
+                    panic!("{argv0}: {e}")
                 },
                 SedEffect::Quit => break,
                 SedEffect::Print(p) => print!("{p}"),

@@ -8,7 +8,7 @@ use crate::{
         CommandParsingSpec, Parser, ParserError, ParserState,
         parsecommand::{SedCommand, SubstitutionLikeCommandFactory},
     },
-    program::{BlockType, SedProgram, SedProgramBlock},
+    program::SedProgram,
 };
 
 impl Parser {
@@ -24,19 +24,15 @@ fn parse_script(
 ) -> Result<SedProgram, ParserError> {
     let mut parser_state = ParserState {
         labels: Default::default(),
-        current_stmt_count: 0,
+        stmts: vec![],
     };
-    let mut script = vec![];
-    parse_block(chars, &mut script, commands, &mut parser_state)?;
+    parse_block(chars, commands, &mut parser_state)?;
 
     if !chars.peek().is_none() {
         return Err(ParserError::UnmatchedBracket);
     }
 
-    Ok(SedProgram {
-        commands: script,
-        labels: parser_state.labels,
-    })
+    Ok(parser_state.into_program())
 }
 
 fn parse_address_range(
@@ -100,15 +96,35 @@ fn parse_string_with_fence(
     fence: char,
 ) -> Result<String, ParserError> {
     let mut src = String::new();
-    while let Some(s) = chars.next_if(|c| *c != fence) {
-        src.push(s);
+    let mut escaped = false;
+    if fence == '\\' {
+        return Err(ParserError::BackslashFence);
     }
-    let end_fence = chars.next();
-    if end_fence.is_none() {
-        return Err(ParserError::UnexpectedEof);
+    if fence.is_ascii_whitespace() {
+        return Err(ParserError::WhitespaceFence);
+    }
+    loop {
+        match chars.next() {
+            Some(c) if escaped => {
+                escaped = false;
+                src.push(c);
+            },
+            Some(c) if c == fence => {
+                break;
+            },
+            Some('\\') => {
+                escaped = true;
+                continue;
+            }
+            Some(c) => {
+                src.push(c);
+            }
+            None => {
+                return Err(ParserError::UnexpectedEof);
+            }
+        }
     }
 
-    debug_assert_eq!(end_fence, Some(fence));
     Ok(src)
 }
 
@@ -135,7 +151,6 @@ fn parse_usize(chars: &mut Peekable<impl Iterator<Item = char>>) -> Result<usize
 
 fn parse_block(
     chars: &mut Peekable<impl Iterator<Item = char>>,
-    script: &mut Vec<SedProgramBlock>,
     commands: &BTreeMap<char, CommandParsingSpec>,
     parse_state: &mut ParserState,
 ) -> Result<(), ParserError> {
@@ -156,19 +171,12 @@ fn parse_block(
                 //inverted jump that we'll fixup to point to the end of the block after.
                 //If it is All, then no need to have a guard at all, since it's semantically equivalent
                 //to a bunch of unblocked commands.
-                let mut guard_jump_index = None;
-                if !matches!(addr, AddressRange::All) {
-                    guard_jump_index = Some(commands.len());
-                    script.push(SedProgramBlock {
-                        command: BlockType::BlockBranch(0),
-                        filter: addr.inverted().unwrap(),
-                    });
-                }
-
-                parse_block(chars, script, commands, parse_state)?;
-
-                if let Some(guard_jump_index) = guard_jump_index {
-                    script[guard_jump_index].command = BlockType::BlockBranch(commands.len());
+                if matches!(addr, AddressRange::All) {
+                    parse_block(chars, commands, parse_state)?;
+                } else {
+                    parse_state.guard_block(addr.inverted().unwrap(), |parse_state| 
+                        parse_block(chars, commands, parse_state)
+                    )?;
                 }
 
                 if chars.next_if_eq(&'}').is_none() {
@@ -191,10 +199,7 @@ fn parse_block(
                     CommandParsingSpec::NoArgument(fac) => fac.new(parse_state)?,
                 };
 
-                script.push(SedProgramBlock {
-                    command: BlockType::SingleCommand(cmd),
-                    filter: addr,
-                });
+                parse_state.push(cmd, addr);
             }
             Some(c) => return Err(ParserError::UnknownCommand(*c)),
             None => break,
@@ -221,11 +226,14 @@ fn parse_substitution(
     }
 
     while let Some(flag) = chars.peek() {
-        if fac.check_flag(*flag) {
+        if *flag == ';' || flag.is_ascii_whitespace() {
+            break;
+        }
+        else if fac.check_flag(*flag) {
             flags.push(*flag);
             chars.next();
         } else {
-            break;
+            return Err(ParserError::UnknownFlag(fac.command_name().to_string(), *flag));
         }
     }
 
@@ -233,10 +241,10 @@ fn parse_substitution(
 }
 
 fn parse_singleline_string(chars: &mut Peekable<impl Iterator<Item = char>>) -> String {
-    chars.next_if_eq(&' ');
+    skip_inline_ws(chars);
 
     let mut s = String::new();
-    while let Some(c) = chars.next_if(|c| *c != '\n' && *c != ';') {
+    while let Some(c) = chars.next_if(|c| *c != '\n' && *c != ';' && *c != '}') {
         s.push(c);
     }
     s

@@ -13,7 +13,11 @@ impl SedCommand for BranchCommand {
         _: &mut String,
         _: &mut String,
     ) -> CommandResult<'_> {
-        CommandResult::BranchToLabel(&self.0)
+        if self.0.is_empty() {
+            CommandResult::BranchToEnd
+        } else {
+            CommandResult::BranchToLabel(&self.0)
+        }
     }
 }
 
@@ -25,6 +29,6 @@ impl SingleLineArgumentCommandFactory for BranchCommandFactory {
         _: &mut crate::parser::ParserState,
         argument: String,
     ) -> Result<Box<dyn SedCommand>, ParserError> {
-        Ok(Box::new(BranchCommand(argument)))
+        Ok(Box::new(BranchCommand(argument.trim().to_owned())))
     }
 }

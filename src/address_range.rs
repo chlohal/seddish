@@ -1,5 +1,6 @@
 use regex::Regex;
 
+#[derive(Debug)]
 pub enum AddressRange {
     All,
     Single {
@@ -23,6 +24,7 @@ impl AddressRange {
     }
 }
 
+#[derive(Debug)]
 pub enum Address {
     LineNumber(usize),
     Last,

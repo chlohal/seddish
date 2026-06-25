@@ -3,4 +3,5 @@ pub mod parser;
 pub mod commands;
 pub mod address_range;
 
-
+#[cfg(test)]
+mod tests;
