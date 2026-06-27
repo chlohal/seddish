@@ -8,7 +8,7 @@ pub struct PrintCommand;
 impl SedCommand for PrintCommand {
     fn execute<'a>(
         &'a self,
-        _: &mut crate::program::SedLineState,
+        _: crate::program::SedLineState,
         _: &crate::program::SedLineInfo,
         _: &mut String,
         pattern: &'a mut String,

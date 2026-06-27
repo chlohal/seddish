@@ -8,12 +8,12 @@ pub struct QuitNoPrintCommand;
 impl SedCommand for QuitNoPrintCommand {
     fn execute<'a>(
         &'a self,
-        _: &mut crate::program::SedLineState,
+        st: crate::program::SedLineState,
         _: &crate::program::SedLineInfo,
         _: &mut String,
-        pattern: &'a mut String,
+        _: &'a mut String,
     ) -> CommandResult<'a> {
-        pattern.clear();
+        *st.implicit_print_at_end = false;
         CommandResult::QuitScript
     }
 }

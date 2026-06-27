@@ -45,7 +45,7 @@ impl NoArgumentCommandFactory for fn() -> CommandResult<'static> {
 impl SedCommand for fn() -> CommandResult<'static> {
     fn execute<'a>(
         &'a self,
-        _: &'a mut SedLineState,
+        _: SedLineState,
         _: &'a SedLineInfo,
         _: &'a mut String,
         _: &'a mut String,
@@ -61,7 +61,7 @@ pub trait NoArgumentCommandFactory: 'static + Send {
 pub trait SedCommand: 'static + Send {
     fn execute<'a>(
         &'a self,
-        line_state: &'a mut SedLineState,
+        line_state: SedLineState,
         line_details: &'a SedLineInfo,
         hold_space: &'a mut String,
         pattern_space: &'a mut String,

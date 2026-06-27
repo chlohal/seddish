@@ -8,7 +8,7 @@ pub struct HoldReplaceCommand;
 impl SedCommand for HoldReplaceCommand {
     fn execute(
         &self,
-        _: &mut crate::program::SedLineState,
+        _: crate::program::SedLineState,
         _: &crate::program::SedLineInfo,
         hold: &mut String,
         pattern: &mut String,

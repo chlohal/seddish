@@ -8,7 +8,7 @@ pub struct LabelCommand;
 impl SedCommand for LabelCommand {
     fn execute(
         &'_ self,
-        _: &mut crate::program::SedLineState,
+        _: crate::program::SedLineState,
         _: &crate::program::SedLineInfo,
         _: &mut String,
         _: &mut String,

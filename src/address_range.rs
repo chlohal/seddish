@@ -32,13 +32,13 @@ pub enum Address {
     Step { first: usize, step: usize },
 }
 impl Address {
-    pub fn matches(&self, line_index: usize, pattern: &str, is_last: bool) -> bool {
+    pub fn matches(&self, line_number: usize, pattern: &str, is_last: bool) -> bool {
         match self {
-            Address::LineNumber(l) => *l == line_index,
+            Address::LineNumber(l) => *l == line_number,
             Address::Last => is_last,
             Address::Regex(regex) => regex.is_match(pattern),
             Address::Step { first, step } => {
-                ((line_index).saturating_sub(*first) % step) == 0
+                ((line_number).saturating_sub(*first) % step) == 0
             },
         }
     }

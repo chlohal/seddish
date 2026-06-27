@@ -8,7 +8,7 @@ pub struct BranchIfSubSuccessfulCommand(String);
 impl SedCommand for BranchIfSubSuccessfulCommand {
     fn execute(
         &self,
-        SedLineState { substitution_successful }: &mut crate::program::SedLineState,
+        SedLineState { substitution_successful, .. }: crate::program::SedLineState,
         _: &crate::program::SedLineInfo,
         _: &mut String,
         _: &mut String,

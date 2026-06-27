@@ -8,11 +8,12 @@ pub struct NextCommand;
 impl SedCommand for NextCommand {
     fn execute(
         &self,
-        _: &mut crate::program::SedLineState,
+        st: crate::program::SedLineState,
         _: &crate::program::SedLineInfo,
         _: &mut String,
         _: &mut String,
     ) -> CommandResult<'_> {
+        *st.substitution_successful = false;
         CommandResult::ReadNextLine
     }
 }

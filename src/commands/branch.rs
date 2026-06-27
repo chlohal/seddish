@@ -8,7 +8,7 @@ pub struct BranchCommand(String);
 impl SedCommand for BranchCommand {
     fn execute(
         &self,
-        _: &mut crate::program::SedLineState,
+        _: crate::program::SedLineState,
         _: &crate::program::SedLineInfo,
         _: &mut String,
         _: &mut String,

@@ -8,12 +8,13 @@ pub struct HoldAppendCommand;
 impl SedCommand for HoldAppendCommand {
     fn execute(
         &self,
-        _: &mut crate::program::SedLineState,
+        _: crate::program::SedLineState,
         _: &crate::program::SedLineInfo,
         hold: &mut String,
         pattern: &mut String,
     ) -> CommandResult<'_> {
-        pattern.push_str(&hold);
+        hold.push('\n');
+        hold.push_str(&pattern);
         CommandResult::Nothing
     }
 }

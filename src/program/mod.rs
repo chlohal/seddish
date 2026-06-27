@@ -46,6 +46,7 @@ impl std::fmt::Debug for BlockType {
 pub struct SedLineInfo {
     pub index: usize,
 }
-pub struct SedLineState {
-    pub substitution_successful: bool,
+pub struct SedLineState<'d> {
+    pub substitution_successful: &'d mut bool,
+    pub implicit_print_at_end: &'d mut bool,
 }

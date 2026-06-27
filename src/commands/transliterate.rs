@@ -11,7 +11,7 @@ pub struct TransliterateCommand {
 impl SedCommand for TransliterateCommand {
     fn execute<'a>(
         &'a self,
-        _: &mut crate::program::SedLineState,
+        _: crate::program::SedLineState,
         _: &crate::program::SedLineInfo,
         _: &mut String,
         pattern: &'a mut String,

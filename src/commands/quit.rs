@@ -8,7 +8,7 @@ pub struct QuitCommand;
 impl SedCommand for QuitCommand {
     fn execute<'a>(
         &'a self,
-        _: &mut crate::program::SedLineState,
+        _: crate::program::SedLineState,
         _: &crate::program::SedLineInfo,
         _: &mut String,
         _: &'a mut String,

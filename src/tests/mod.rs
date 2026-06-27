@@ -1,13 +1,31 @@
+use std::fmt::Write;
+
 use crate::parser::Parser;
 
-pub(self) fn test_from_busybox_sed(expected: &str, input: &str, source: &str) {
+trait ListOrSingle<T> {
+    fn to_list(&self) -> &[T];
+}
+
+impl<T> ListOrSingle<T> for T {
+    fn to_list(&self) -> &[T] {
+        std::array::from_ref(self)
+    }
+}
+
+impl<const N: usize, T> ListOrSingle<T> for [T; N] {
+    fn to_list(&self) -> &[T] {
+        self
+    }
+}
+
+pub(self) fn test_from_busybox_sed(expected: &str, input_lines: impl ListOrSingle<&'static str>, source: &str) {
     let sed = Parser::new().parse(source).unwrap();
-    let mut doc = sed.document();
-    let mut lines  = input.lines().peekable();
+    let mut doc = sed.document(true);
+    let mut lines  = input_lines.to_list().into_iter().peekable();
 
     let mut printed = String::new();
 
-    while let Some(l) = lines.next() {
+    'lines: while let Some(l) = lines.next() {
         let is_last = lines.peek().is_none();
         
         let mut line = doc.line(l.to_string(), is_last);
@@ -15,27 +33,23 @@ pub(self) fn test_from_busybox_sed(expected: &str, input: &str, source: &str) {
         while let Some(eff) = line.next_effect() {
             match eff {
                 crate::program::SedEffect::Error(err) => panic!("{err}"),
-                crate::program::SedEffect::Quit => break,
+                crate::program::SedEffect::Quit => break 'lines,
                 crate::program::SedEffect::Print(p) => {
-                    printed += &p;
+                    writeln!(&mut printed, "{p}").unwrap();
                 },
                 crate::program::SedEffect::WriteFile(_, _) => panic!("Can't write in test"),
                 crate::program::SedEffect::RequestReadFileAppend(_) => panic!("Can't read in test"),
-                crate::program::SedEffect::RequestNextLineAppended => if let Some(nl) = lines.next() {
-                    line.append_next_line(nl)
+                crate::program::SedEffect::RequestNextLineAppended => {
+                    line.append_next_line(lines.next());
                 },
-                crate::program::SedEffect::RequestNextLine => if let Some(nl) = lines.next() {
-                    line.replace_with_next_line(nl.to_string())
+                crate::program::SedEffect::NextLineKeepingStateState => {
+                    line.replace_with_next_line(lines.next());
                 },
             }
         }
-        let final_pat = line.pattern();
-        if !final_pat.trim().is_empty() {
-            printed += &final_pat;
-        }
     }
 
-    assert_eq!(printed, expected);
+    assert_eq!(printed.trim(), expected.trim(), "Expected: {:?}, actual: {:?}", expected.trim(), printed.trim());
 }
 
 mod busybox;

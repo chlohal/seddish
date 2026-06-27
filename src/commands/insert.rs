@@ -8,12 +8,12 @@ pub struct InsertCommand(String);
 impl SedCommand for InsertCommand {
     fn execute(
         &self,
-        _: &mut crate::program::SedLineState,
+        _: crate::program::SedLineState,
         _: &crate::program::SedLineInfo,
         _: &mut String,
         pattern_space: &mut String,
     ) -> CommandResult<'_> {
-        *pattern_space = format!("{}{}", self.0, pattern_space);
+        *pattern_space = format!("{}\n{}", self.0, pattern_space);
         CommandResult::Nothing
     }
 }

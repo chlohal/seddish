@@ -8,12 +8,12 @@ pub struct WriteFileFirstLineCommand(String);
 impl SedCommand for WriteFileFirstLineCommand {
     fn execute<'a>(
         &'a self,
-        _: &mut crate::program::SedLineState,
+        _: crate::program::SedLineState,
         _: &crate::program::SedLineInfo,
         _: &mut String,
         pattern: &'a mut String,
     ) -> CommandResult<'a> {
-        let f = pattern.split('\n').next().unwrap_or(pattern.as_str());
+        let f = pattern.split_once('\n').map(|(f, _)| f).unwrap_or(pattern.as_str());
         CommandResult::WriteFile(&self.0.as_ref(), f)
     }
 }

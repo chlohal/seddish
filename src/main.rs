@@ -14,7 +14,7 @@ pub fn main() {
 
     let sed: SedProgram = script.unwrap().parse().expect("Error parsing script");
 
-    let mut stdin_sed = sed.document();
+    let mut stdin_sed = sed.document(true);
 
     let mut lines = stdin.lines().peekable();
 
@@ -29,14 +29,12 @@ pub fn main() {
                     panic!("{argv0}: {e}")
                 },
                 SedEffect::Quit => break,
-                SedEffect::Print(p) => print!("{p}"),
+                SedEffect::Print(p) => println!("{p}"),
                 SedEffect::WriteFile(_, _) => {},
                 SedEffect::RequestReadFileAppend(_) => {},
                 SedEffect::RequestNextLineAppended => {},
-                SedEffect::RequestNextLine => {},
+                SedEffect::NextLineKeepingStateState => {},
             }
         }
-
-        print!("{}", line.pattern());
     }
 }

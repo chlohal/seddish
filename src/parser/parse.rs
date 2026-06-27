@@ -91,27 +91,52 @@ fn parse_address(
     }
 }
 
-fn parse_string_with_fence(
+/// Parses a string, understanding escape sequences and translating them, until
+/// reaching a character for which is_end(c) returns true. The end character _will_
+/// be consumed. 
+/// 
+/// The first character for which is_end(c) returns true is NOT NECESSARILY where 
+/// this function will return: if the character was escaped, then it will continue
+/// regardless.
+/// 
+/// If & only if EOF is reached before is_end returns true, then it will
+/// return Err((src, ParserError::UnexpectedEOF)), where src contains the entire
+/// content up to that point.
+/// 
+fn parse_string_until_end(
     chars: &mut Peekable<impl Iterator<Item = char>>,
-    fence: char,
-) -> Result<String, ParserError> {
+    mut is_end: impl FnMut(char) -> bool,
+) -> Result<String, (String, ParserError)> {
     let mut src = String::new();
     let mut escaped = false;
-    if fence == '\\' {
-        return Err(ParserError::BackslashFence);
-    }
-    if fence.is_ascii_whitespace() {
-        return Err(ParserError::WhitespaceFence);
-    }
+    
     loop {
         match chars.next() {
-            Some(c) if escaped => {
-                escaped = false;
+            //Sed doesn't like newlines in regexes, so escaping them is valid.
+            Some('n' | '\n') if escaped => {
+                src.push('\n');
+            }
+            Some('r') if escaped => {
+                src.push('\r');
+            }
+            Some('t') if escaped => {
+                src.push('\t');
+            }
+            Some(c) if escaped && is_end(c) => {
                 src.push(c);
-            },
-            Some(c) if c == fence => {
+            }
+            Some(c) if escaped => {
+                //In 99% of cases, we want to make the underlying command aware that
+                //there was a backslash here in case they want to use it for some kind of
+                //syntax. We will ALWAYS put the backslash in the source code UNLESS it was escaping a
+                //special character (\n, \r, or \t); or if it was escaping a fence: all of these cases
+                //are covered above, so if this is reached, ALWAYS include the backslash.
+                src.push('\\');
+                src.push(c);
+            }
+            Some(c) if is_end(c) => {
                 break;
-            },
+            }
             Some('\\') => {
                 escaped = true;
                 continue;
@@ -120,19 +145,37 @@ fn parse_string_with_fence(
                 src.push(c);
             }
             None => {
-                return Err(ParserError::UnexpectedEof);
+                return Err((src, ParserError::UnexpectedEof));
             }
         }
+        escaped = false;
     }
 
     Ok(src)
+}
+
+fn parse_substitution_style_argument(
+    chars: &mut Peekable<impl Iterator<Item = char>>,
+    fence: char,
+) -> Result<String, ParserError> {
+    if fence == '\\' {
+        return Err(ParserError::BackslashFence);
+    }
+    if fence.is_ascii_whitespace() {
+        return Err(ParserError::WhitespaceFence);
+    }
+    return parse_string_until_end(chars, |c| c == fence).map_err(|(_, e)| e)
 }
 
 fn parse_regex_with_fences(
     chars: &mut Peekable<impl Iterator<Item = char>>,
     fence: char,
 ) -> Result<Regex, ParserError> {
-    Regex::new(&parse_string_with_fence(chars, fence)?).map_err(ParserError::RegexError)
+    let src = parse_substitution_style_argument(chars, fence)?;
+    if src.is_empty() {
+        return Err(ParserError::EmptyRegularExpression);
+    }
+    Regex::new(&src).map_err(ParserError::RegexError)
 }
 
 fn parse_usize(chars: &mut Peekable<impl Iterator<Item = char>>) -> Result<usize, ParserError> {
@@ -174,9 +217,9 @@ fn parse_block(
                 if matches!(addr, AddressRange::All) {
                     parse_block(chars, commands, parse_state)?;
                 } else {
-                    parse_state.guard_block(addr.inverted().unwrap(), |parse_state| 
+                    parse_state.guard_block(addr.inverted().unwrap(), |parse_state| {
                         parse_block(chars, commands, parse_state)
-                    )?;
+                    })?;
                 }
 
                 if chars.next_if_eq(&'}').is_none() {
@@ -218,22 +261,24 @@ fn parse_substitution(
     let mut flags = String::new();
 
     let argc = fac.field_count();
-    
+
     let mut fields = vec![];
 
     for _ in 0..argc {
-        fields.push(parse_string_with_fence(chars, fence)?);
+        fields.push(parse_substitution_style_argument(chars, fence)?);
     }
 
     while let Some(flag) = chars.peek() {
         if *flag == ';' || flag.is_ascii_whitespace() {
             break;
-        }
-        else if fac.check_flag(*flag) {
+        } else if fac.check_flag(*flag) {
             flags.push(*flag);
             chars.next();
         } else {
-            return Err(ParserError::UnknownFlag(fac.command_name().to_string(), *flag));
+            return Err(ParserError::UnknownFlag(
+                fac.command_name().to_string(),
+                *flag,
+            ));
         }
     }
 
@@ -243,36 +288,19 @@ fn parse_substitution(
 fn parse_singleline_string(chars: &mut Peekable<impl Iterator<Item = char>>) -> String {
     skip_inline_ws(chars);
 
-    let mut s = String::new();
-    while let Some(c) = chars.next_if(|c| *c != '\n' && *c != ';' && *c != '}') {
-        s.push(c);
+    match parse_string_until_end(chars, |c| c == '\n' || c == ';' || c == '}') {
+        Ok(s) => s,
+        Err((s, _)) => s,
     }
-    s
 }
 
 fn parse_multiline_string(chars: &mut Peekable<impl Iterator<Item = char>>) -> String {
     //swallow the heading characters
-    if chars.next_if_eq(&'\\').is_some() && chars.next_if_eq(&' ').is_none() {
-        chars.next_if_eq(&'\n');
-    };
+    skip_inline_ws(chars);
 
-    let mut s = String::new();
-    loop {
-        match chars.next() {
-            None => return s,
-            Some('\n') => {
-                // Check for backslash continuation
-                if s.ends_with('\\') {
-                    s.pop();
-                    s.push('\n');
-                } else {
-                    return s;
-                }
-            }
-            Some(c) => {
-                s.push(c);
-            }
-        }
+    match parse_string_until_end(chars, |c| c == '\n') {
+        Ok(s) => s,
+        Err((s, _)) => s,
     }
 }
 

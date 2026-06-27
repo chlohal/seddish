@@ -8,11 +8,12 @@ pub struct AppendCommand(String);
 impl SedCommand for AppendCommand {
     fn execute(
         &self,
-        _: &mut crate::program::SedLineState,
+        _: crate::program::SedLineState,
         _: &crate::program::SedLineInfo,
         _: &mut String,
         pattern_space: &mut String,
     ) -> CommandResult<'_> {
+        pattern_space.push('\n');
         pattern_space.push_str(self.0.as_str());
         CommandResult::Nothing
     }

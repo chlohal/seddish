@@ -50,6 +50,7 @@ pub enum ParserError {
     BackslashFence,
     UnknownFlag(String, char),
     WhitespaceFence,
+    EmptyRegularExpression,
 }
 
 impl ParserState {
@@ -80,12 +81,7 @@ impl ParserState {
         });
         let jump_idx = self.stmts.len() - 1;
 
-        let cb_result = create_block(self);
-
-        if let Err(e) = cb_result {
-            self.stmts.pop();
-            return Err(e);
-        }
+        create_block(self)?;
 
         self.stmts[jump_idx].command = crate::program::BlockType::BlockBranch(self.stmts.len());
 
@@ -171,7 +167,7 @@ impl Parser {
                 'a' => MultilineArgument AppendCommandFactory,
                 'i' => MultilineArgument InsertCommandFactory,
                 'q' => NoArgument QuitCommand,
-                'q' => NoArgument QuitNoPrintCommand,
+                'Q' => NoArgument QuitNoPrintCommand,
                 'r' => SingleLineArgument ReadFileCommandFactory,
                 'b' => SingleLineArgument BranchCommandFactory,
                 'c' => MultilineArgument ChangeCommandFactory,
