@@ -58,7 +58,7 @@ pub trait NoArgumentCommandFactory: 'static + Send {
     fn new(&self, current_parser: &mut ParserState) -> Result<Box<dyn SedCommand>, ParserError>;
 }
 
-pub trait SedCommand: 'static + Send {
+pub trait SedCommand: 'static + Send + Sync {
     fn execute<'a>(
         &'a self,
         line_state: SedLineState,
