@@ -53,3 +53,4 @@ pub(self) fn test_from_busybox_sed(expected: &str, input_lines: impl ListOrSingl
 }
 
 mod busybox;
+mod tests;

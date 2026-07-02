@@ -2,9 +2,7 @@ use regex::{Captures, Regex, Replacer};
 
 use crate::parser::{
     ParserError,
-    parsecommand::{
-        CommandResult, SedCommand, SubstitutionLikeCommandFactory,
-    },
+    parsecommand::{CommandResult, SedCommand, SubstitutionLikeCommandFactory},
 };
 
 pub struct SubstituteCommand {
@@ -34,7 +32,9 @@ impl<'a> Replacer for &'a SubstitutionTo {
         dst.push_str(&self.0[last_noninserted_idx..]);
     }
     fn no_expansion<'r>(&'r mut self) -> Option<std::borrow::Cow<'r, str>> {
-        self.1.is_empty().then(|| std::borrow::Cow::Borrowed(self.0.as_str()))
+        self.1
+            .is_empty()
+            .then(|| std::borrow::Cow::Borrowed(self.0.as_str()))
     }
 }
 
@@ -47,8 +47,6 @@ impl SedCommand for SubstituteCommand {
         pattern: &'a mut String,
     ) -> CommandResult<'a> {
         let limit = if self.all { 0 } else { 1 };
-
-        
 
         let replaced = self.from.replacen(pattern.as_str(), limit, &self.to);
 
@@ -82,10 +80,9 @@ impl SubstitutionLikeCommandFactory for SubstituteCommandFactory {
         }
 
         let from = regex::RegexBuilder::new(&from)
-        .case_insensitive(flags.contains('i'))
-        .build().map_err(ParserError::RegexError)?;
-
-        
+            .case_insensitive(flags.contains('i'))
+            .build()
+            .map_err(ParserError::RegexError)?;
 
         let all = flags.contains('g');
 
@@ -94,7 +91,6 @@ impl SubstitutionLikeCommandFactory for SubstituteCommandFactory {
             to: parse_sed_style_replacement_string(to.as_ref()),
             all,
         }))
-        
     }
 
     fn check_flag(&self, flag: char) -> bool {
@@ -107,24 +103,27 @@ impl SubstitutionLikeCommandFactory for SubstituteCommandFactory {
     fn field_count(&self) -> usize {
         2
     }
-    
+
     fn command_name(&self) -> &'static str {
         "substitution"
     }
-    
 }
-
 
 fn parse_sed_style_replacement_string(s: &str) -> SubstitutionTo {
     let mut src = String::with_capacity(s.len());
     let mut sub_points = Vec::new();
     let mut chars = s.char_indices().peekable();
+    let mut cap_group_char_offset = 0;
     while let Some((i, c)) = chars.next() {
         //escaped digits become a capture group in Sed's syntax
         if c == '\\' && chars.peek().is_some_and(|(_, next)| next.is_ascii_digit()) {
             let (_, capture_group_char) = chars.next().unwrap();
             let capture_group_i = (capture_group_char as u8) - b'0';
-            sub_points.push(SubstutionNode { insert_at: i, capture_group: capture_group_i as usize });
+            sub_points.push(SubstutionNode {
+                insert_at: i - cap_group_char_offset,
+                capture_group: capture_group_i as usize,
+            });
+            cap_group_char_offset += 2;
         } else {
             src.push(c);
         }
