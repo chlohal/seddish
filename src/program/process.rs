@@ -1,4 +1,4 @@
-use std::mem::{replace, take};
+use std::mem::take;
 
 use crate::{
     address_range::Address,
