@@ -119,6 +119,13 @@ pub struct LineEval<'d, 'p> {
 
 impl LineEval<'_, '_> {
     ///
+    /// Stop evaluating and return the final value of the pattern space. There is no newline attached.
+    /// If implicitly printing at the end, this may be empty if the implicit print has already run.
+    /// 
+    pub fn into_final_pattern(self) -> String {
+        self.pattern
+    }
+    ///
     /// Implements the default behaviour of the 'n' command: that is,
     ///
     /// > If auto-print is not disabled, print the pattern space, then,
